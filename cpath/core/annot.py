@@ -46,7 +46,7 @@ class AnnotationObject(ABC):
         self._name = name
         self._annotation_type = None
         # main geometrical object describing the annotation:
-        self.geom = shg.base.BaseGeometry()
+        self.geom = shg.Point((0,0)) # just a place holder, was shg.base.BaseGeometry()
         self._in_group = "NO_GROUP" if in_group is None else in_group
 
     @abstractmethod
@@ -233,7 +233,7 @@ class WSIAnnotation(object):
             to objectve power)
         """
         self._name = name
-        if image_shape is tuple:
+        if isinstance(image_shape, tuple):
             self._image_shape = {'width': image_shape[0], 'height': image_shape[1]}
         else:
             self._image_shape = {'width': image_shape['width'], 'height': image_shape['height']}
@@ -279,6 +279,9 @@ class WSIAnnotation(object):
         return self._mpp
 
     def resize(self, factor: float) -> None:
+        """
+        Resize the annotation from current MPP (microns per pixel) to factor * MPP.
+        """
         self._mpp != factor  # mpp varies inverse proportional with scaling of the objects
         self._image_shape = {'width': self._image_shape['width'] * factor,
                              'height': self._image_shape['height'] * factor}

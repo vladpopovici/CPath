@@ -155,7 +155,7 @@ def _he_fast_foreground_detection(img, **kwargs):
     mask = cv2.erode(img_as_ubyte(mask), kr)
     with warnings.catch_warnings():  # avoid "Possible precision loss when converting from uint8 to bool"
         warnings.simplefilter("ignore")
-        mask = skm.remove_small_objects(img_as_bool(mask), min_size=_min_area, in_place=True)
+        mask = skm.remove_small_objects(img_as_bool(mask), min_size=_min_area)
 
     return mask, None
 
@@ -178,7 +178,7 @@ def _he_simple_foreground_detection(img, **kwargs):
     if _g_th is None or _g_th == 0:
         # Apply vector quantization to remove the "white" background - work in the
         # green channel:
-        vq = MiniBatchKMeans(n_clusters=2)
+        vq = MiniBatchKMeans(n_clusters=2, n_init='auto')
         _g_th = int(np.round(0.95 * np.max(vq.fit(G_(img).reshape((-1, 1)))
                                            .cluster_centers_.squeeze())))
 
@@ -186,7 +186,7 @@ def _he_simple_foreground_detection(img, **kwargs):
 
     skm.binary_closing(mask, skm.disk(3), out=mask)
     mask = img_as_bool(mask)
-    mask = skm.remove_small_objects(mask, min_size=_min_area, in_place=True)
+    mask = skm.remove_small_objects(mask, min_size=_min_area)
 
     # Some hand-picked rules:
     # -at least 5% H and E
@@ -236,7 +236,7 @@ def _simple_foreground_detection(img, **kwargs):
 
     skm.binary_closing(mask, skm.disk(3), out=mask)
     mask = img_as_bool(mask)
-    mask = skm.remove_small_objects(mask, min_size=_min_area, in_place=True)
+    mask = skm.remove_small_objects(mask, min_size=_min_area)
 
     mask = mh.close_holes(mask)
     mask = mh.morph.open(mask, mh.disk(5))
@@ -280,7 +280,7 @@ def _fesi_foreground_detection(img: np.ndarray, **kwargs):
                              _morph_open_iter)
 
     mask = img_as_bool(imgmk)
-    mask = skm.remove_small_objects(mask, min_size=_min_area, in_place=True)
+    mask = skm.remove_small_objects(mask, min_size=_min_area)
     mask = mh.close_holes(mask)
     mask = mh.morph.erode(mask, mh.disk(5))
     mask = mh.morph.open(mask, mh.disk(5))

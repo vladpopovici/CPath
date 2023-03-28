@@ -56,7 +56,7 @@ import numpy as np
 import skimage.draw
 import cv2
 import shapely.geometry as shg
-
+from .annot import Polygon
 
 ##-
 def binary_mask(image: np.ndarray, level: float, mode: str = 'exact') -> np.ndarray:
@@ -122,7 +122,7 @@ def mask_to_external_contours(mask: np.ndarray, approx_factor: float = None, min
     for c in cnt:
         c[c < 0] = 0
 
-    cnt = [shg.Polygon(c) for c in cnt if len(c) >= 3]
+    cnt = [Polygon(c) for c in cnt if len(c) >= 3]
 
     if min_area is not None:
         res = [p for p in cnt if p.geom.area >= min_area]

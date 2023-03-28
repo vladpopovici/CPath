@@ -8,12 +8,14 @@
 __author__ = "Vlad Popovici <popovici@bioxlab.org>"
 __version__ = 0.1
 
-__all__ = ['NumpyImage', 'R_', 'G_', 'B_', 'mark_points', 'array_to_image']
+__all__ = ['NumpyImage', 'R_', 'G_', 'B_', 'mark_points', 'array_to_image',
+           'NumpyJSONEncoder']
 
 import numpy as np
 from typing import NewType
 import matplotlib.pyplot
 import skimage.draw as skd
+import simplejson as json
 
 
 ImageShape = NewType("ImageShape", dict[str, int])
@@ -156,4 +158,18 @@ def mark_points(image: np.array, points: np.array, radius: int, color: tuple,
         res[r,c,...] = col
 
     return res
-    
+##    
+
+class NumpyJSONEncoder(json.JSONEncoder):
+    """Provides an encoder for Numpy types for serialization."""
+
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+
+        return super().default(obj)
+##

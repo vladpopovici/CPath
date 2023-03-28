@@ -23,7 +23,7 @@ import re
 from typing import Optional
 import pyometiff
 import tifffile
-
+from contextlib import redirect_stdout
 from . import ImageShape
 from .magnif import Magnification
 
@@ -43,16 +43,17 @@ class WSIInfo(object):
         info (dict): see the OME-XML and OME-ZARR specifications.
     """
 
-    def __init__(self, path: str):
-        tif = tifffile.TiffFile(path)
+    def __init__(self, path: str | pathlib.Path):
+        tif = tifffile.TiffFile(str(path))
         if not tif.is_ome:
             raise RuntimeError("only OME TIFF files are accepted.")
         
         self.path = pathlib.Path(path)
 
-        ome = pyometiff.OMETIFFReader(fpath=path)
+        ome = pyometiff.OMETIFFReader(fpath=str(path))
         ome.omexml_string = tif.ome_metadata  # work-around a bug in pyometiff
-        self.info = ome.parse_metadata(tif.ome_metadata)
+        with redirect_stdout(None): # to avoid messages about not found keys
+            self.info = ome.parse_metadata(tif.ome_metadata)
         
         # axes: identify singletons and remove from axes annotation
         self.axes = ''.join(
