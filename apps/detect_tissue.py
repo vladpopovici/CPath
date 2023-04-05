@@ -131,11 +131,13 @@ def main():
             raise RuntimeWarning("Contour {} is not valid".format(c.geom))
         c.geom = translate(c.geom, xoff=xmin, yoff=ymin)
         c._name = "tissue"
+        c._in_group = "tissue_foreground"  
 
     # ...and get image extent at working magnification
     img_shape = img_src.extent(level_2)
     annot = WSIAnnotation(name=args.annotation_name, image_shape=img_shape, 
-                          mpp=wsi.get_mpp_for_level(level_2))  # use exact image's mpp
+                          mpp=wsi.get_mpp_for_level(level_2),
+                          group_list=['tissue_foreground'])  # use exact image's mpp
     annot.add_annotations(contours)
 
     # get back to native magnification...

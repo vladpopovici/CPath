@@ -231,6 +231,8 @@ class WSIAnnotation(object):
             'width' and 'height' keys must be used.
         :param mpp: resolution at which the annotation was created (mpp relates
             to objectve power)
+        :param group_list: list of group annotations. There is at least one group - 
+            the default one - called "NO_GROUP"
         """
         self._name = name
         if isinstance(image_shape, tuple):
