@@ -51,7 +51,8 @@ class WSIInfo(object):
         self.path = pathlib.Path(path)
 
         ome = pyometiff.OMETIFFReader(fpath=str(path))
-        ome.omexml_string = tif.ome_metadata  # work-around a bug in pyometiff
+        if pyometiff.__version__ < '0.0.12':
+            ome.omexml_string = tif.ome_metadata  # work-around a bug in pyometiff < 0.0.12
         with redirect_stdout(None): # to avoid messages about not found keys
             self.info = ome.parse_metadata(tif.ome_metadata)
         
