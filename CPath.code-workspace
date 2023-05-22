@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../../fastdata/monai/apps"
+		}
+	],
+	"settings": {
+		"workbench.colorTheme": "Default Light Modern",
+		"editor.fontSize": 18
+	}
+}

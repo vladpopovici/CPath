@@ -148,7 +148,9 @@ def main():
     annot._image_shape = dict(width=img_shape[0], height=img_shape[1])
 
     with open(out_path, 'w') as f:
-        gjson.dump(annot.asGeoJSON(), f, cls=NumpyJSONEncoder)
+        tmp = annot.asGeoJSON()
+        tmp['__description__'] = __description__
+        gjson.dump(tmp, f, cls=NumpyJSONEncoder)
 
     return
 ##

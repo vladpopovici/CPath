@@ -37,7 +37,7 @@ def main():
                    required=True)
     p.add_argument("--out", action="store", help="output file (JSON)", required=False, default=None)
     p.add_argument("--show", action="store", type=str, metavar='WHAT',
-                   choices=['all'] + show_choices, nargs='+', default='all', required=True,
+                   choices=['all', 'none'] + show_choices, nargs='+', default='all', required=True,
                    help="what to show: all, " + ', '.join(show_choices))
 
     args = p.parse_args()
@@ -45,39 +45,40 @@ def main():
     in_path = Path(args.image).expanduser().absolute()
     out_path = None if args.out is None else Path(args.out).expanduser().absolute()
 
+    __description__['params'] = vars(args)
+    __description__['input'] = [str(in_path)]
+    __description__['output'] = [str(out_path)]
+
+
     to_show = []
     for show in args.show:
         if show.lower() == 'all':
             to_show = show_choices
             break
+        if show.lower() == 'none':
+            to_show = []
+            break
         to_show.append(show.lower())
     
-    if len(to_show) == 0:
+    if len(to_show) == 0 and out_path is None:
+        # nothing to show, no file to save to...
         return
     
     wsi = WSIInfo(in_path)
 
-    info = dict()
+    info = {
+        'nlevels': wsi.level_count(),
+        'mpp': wsi.get_native_resolution(),
+        'magnification': wsi.get_native_magnification(),
+        'shape': wsi.get_extent_at_level(0),
+        'pyramid': [wsi.get_extent_at_level(k) for k in range(wsi.level_count())]
+    }
+
     for show in to_show:
-        if show == 'nlevels':
-            info['nlevels'] = wsi.level_count()
-            print(wsi.level_count())
-        elif show == 'mpp':
-            info['mpp'] = wsi.get_native_resolution()
-            print(wsi.get_native_resolution())
-        elif show == 'magnification':
-            info['magnification'] = wsi.get_native_magnification()
-            print(wsi.get_native_magnification())
-        elif show == 'shape':
-            info['shape'] = wsi.get_extent_at_level(0)
-            print(wsi.get_extent_at_level(0))
-        elif show == 'pyramid':
-            info['pyramid'] = [wsi.get_extent_at_level(k) for k in range(wsi.level_count())]
-            print(info['pyramid'])
-        else:
-            raise RuntimeError("Unkown option - this should not happen!")
+        print(info[show])
 
     if out_path is not None:
+        info['__description__'] = __description__
         with open(out_path, 'w') as f:
             gjson.dump(info, f, cls=NumpyJSONEncoder)
 

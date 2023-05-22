@@ -24,7 +24,7 @@ from .wsi import WSIInfo
 #####
 class MRI(object):
     """MultiResolution Image - a simple and convenient interface to access pixels from a
-    pyramidal image (e.g. in OME TIFF format). The image accessed as a ZARR store and the
+    pyramidal image (e.g. in OME TIFF format). The image is accessed as a ZARR store and the
     details for image and pyramid layout are passed by the WSIInfo object.
 
     Args:

@@ -115,14 +115,32 @@ def mask_to_external_contours(mask: np.ndarray, approx_factor: float = None, min
     m = np.pad(mask.astype(np.uint8), pad_width=2, mode="constant", constant_values=0)
     cnt, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if approx_factor is not None:
-        cnt = [cv2.approxPolyDP(c, approx_factor * cv2.arcLength(c, True), True) for c in cnt]
+        # approximate the contours by polygons. If the resulting polygon-like contour is
+        # not a true polygon, increase the approximation factor:
+        cnt_tmp = list()
+        for c in cnt:
+            while True:
+                ct = cv2.approxPolyDP(c, approx_factor * cv2.arcLength(c, True), True)
+                ct = ct.squeeze() - 2
+                if len(ct) >= 3:
+                    ct = Polygon(ct)
+                else:
+                    break
+                if ct.geom.is_valid:
+                    # valid polygon, add to the list
+                    cnt_tmp.append(ct)
+                    break
+                else:
+                    # invalid polygon, increase approximation factor
+                    approx_factor *= 5
+        cnt = cnt_tmp
+    else:
+        # remove eventual singleton dimensions and convert to Polygon (removing the padding of 2)
+        cnt = [c.squeeze() - 2 for c in cnt]
+        for c in cnt:
+            c[c < 0] = 0
 
-    # remove eventual singleton dimensions and convert to Polygon (removing the padding of 2)
-    cnt = [c.squeeze() - 2 for c in cnt]
-    for c in cnt:
-        c[c < 0] = 0
-
-    cnt = [Polygon(c) for c in cnt if len(c) >= 3]
+        cnt = [Polygon(c) for c in cnt if len(c) >= 3]
 
     if min_area is not None:
         res = [p for p in cnt if p.geom.area >= min_area]
