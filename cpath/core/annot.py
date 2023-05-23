@@ -276,6 +276,12 @@ class WSIAnnotation(object):
     def type(self):
         """Return the annotation type as a string."""
         return 'WSIAnnotation'
+    
+    def get_all_annotations(self) -> dict:
+        return self._annots
+    
+    def get_group(self, group_name) -> list:
+        return self._annots[group_name]
 
     def get_mpp(self) -> float:
         return self._mpp
@@ -349,7 +355,7 @@ class WSIAnnotation(object):
             raise RuntimeError("Need a FeatureCollection as annotation! Got: " + d["type"])
 
         self._annots.clear()
-        mg, im_shape = None, None
+        mg, im_shape, nm = None, None, None
         for a in d["features"]:
             obj = WSIAnnotation._createEmptyAnnotationObject(a["geometry"]["type"])
             obj.fromGeoJSON(a)
@@ -358,8 +364,11 @@ class WSIAnnotation(object):
                 mg = a["properties"]["resolution_mpp"]
             if im_shape is None and "properties" in a:
                 im_shape = a["properties"]["image_shape"]
+            if nm is None and "properties" in a:
+                nm = a["properties"]["name"]
         self._mpp = mg
         self._image_shape = im_shape
+        self._name = nm
 
         return
 

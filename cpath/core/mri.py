@@ -210,9 +210,9 @@ class MRI(object):
         # mask out the points outside the contour
         for i in np.arange(img.shape[0]):
             # line mask
-            lm = np.zeros((img.shape[1],), dtype=img.dtype)
+            lm = np.zeros((img.shape[1], img.shape[2]), dtype=img.dtype)
             j = [_j for _j in np.arange(img.shape[1]) if shg.Point(_j, i).within(contour)]
-            lm[j] = 1
+            lm[j,] = 1
             img[i,] = img[i,] * lm
 
         return img

@@ -35,6 +35,8 @@ import numpy as np
 from csbdeep.utils.tf import keras_import
 from csbdeep.data import Normalizer, normalize_mi_ma
 
+from shapely.affinity import translate
+
 from stardist.models import StarDist2D
 
 from cpath.core.wsi import WSIInfo
@@ -64,6 +66,11 @@ def main():
     p.add_argument("--out", action="store",
                    help="JSON file for storing the resulting annotation (nuclei positions)",
                    required=True)
+    p.add_argument("--roi", action="store", help="annotation file with region(s) of interest", default=None, required=False)
+    p.add_argument("--roi_name", action="store", help="annotation name", default="tissue", required=False)
+    p.add_argument("--roi_group", action="store", help="annotation group to use", default="NO_GROUP", required=False)
+    p.add_argument("--out_annot_name", action="store", default='nuclei_stardist', required=False)
+    p.add_argument("--out_annot_group", action="store", default='nuclei', required=False)
     p.add_argument("--mpp", action="store", help="approximate work resolution (microns-per-pixel) (defaults to min mpp)", 
                    required=False, default=0.0, type=float)
     p.add_argument("--min_area", action="store", type=int, default=None,
@@ -72,6 +79,7 @@ def main():
                    help="maximum area of a nuclei", required=False)
     p.add_argument("--min_prob", action="store", type=float, default=0.5,
                    help="all candidate dections below this minimum probability will be discarded")
+    p.add_argument("--show_progress", action="store_true", help="show progress bars")
 
     args = p.parse_args()
 
@@ -95,34 +103,77 @@ def main():
     else:
         level = wsi.get_level_for_mpp(args.mpp)
 
-    img_shape = wsi.get_extent_at_level(level)
-    sz = min(math.floor(math.sqrt(min(img_shape['width'], img_shape['height'])))**2, 2*4096)
-    sz = int(sz)
-
     model = StarDist2D.from_pretrained('2D_versatile_he')
 
-    img = img_src.get_plane(level)
-    _, polys = model.predict_instances_big(img, axes='YXC',
-                                           block_size=sz,
-                                           min_overlap=128, context=128,
-                                           normalizer=nrm,
-                                           n_tiles=(4, 4, 1),
-                                           labels_out=False,
-                                           show_progress=True)
-    #with open("/home/vlad/tmp/nuclei.json" , 'w') as f:
-    #    json.dump(polys, f, cls=NumpyJSONEncoder)
-
-    (idx,) = np.where(np.array(polys['prob']) >= args.min_prob)
-    n = len(polys['prob'])
-    annot = WSIAnnotation('nuclei',
+    # resulting detections are saved as annotations in 'annot'
+    annot = WSIAnnotation(args.out_annot_name,
                           wsi.get_extent_at_level(level),
-                          mpp=wsi.get_mpp_for_level(level))  # exact mpp
-    for k in idx:
-        p = Polygon([xy for xy in zip(polys['coord'][k][0], polys['coord'][k][1])])
-        annot.add_annotation_object(p)
+                          mpp=wsi.get_mpp_for_level(level),  # exact mpp
+                          group_list=[args.out_annot_group]) 
+
+    if args.roi is None:
+        # run on whole image
+        img_shape = wsi.get_extent_at_level(level)
+        sz = min(math.floor(math.sqrt(min(img_shape['width'], img_shape['height'])))**2, 2*4096)
+        sz = int(sz)
+
+        img = img_src.get_plane(level)
+        _, polys = model.predict_instances_big(img, axes='YXC',
+                                            block_size=sz,
+                                            min_overlap=128, context=128,
+                                            normalizer=nrm,
+                                            n_tiles=(4, 4, 1),
+                                            labels_out=False,
+                                            show_progress=args.show_progress)
+        #with open("/home/vlad/tmp/nuclei.json" , 'w') as f:
+        #    json.dump(polys, f, cls=NumpyJSONEncoder)
+        (idx,) = np.where(np.array(polys['prob']) >= args.min_prob)
+        for k in idx:
+            p = Polygon([xy for xy in zip(polys['coord'][k][0], polys['coord'][k][1])])
+            annot.add_annotation_object(p)
+    else:
+        # run on parts, masked
+        roi = WSIAnnotation("tissue", (0,0), mpp=0) # dummy annotation, read it from file:
+        with open(args.roi, 'r') as f:
+            roi.fromGeoJSON(json.load(f))
+        if roi.name != args.roi_name:
+            raise RuntimeError("Annotation name not found in the given file")
+        roi.set_mpp(wsi.get_mpp_for_level(level))  # set the resolution of the annotation to match WSI
+        roi_parts = roi.get_group(args.roi_group)
+        all_detections = list()
+        for r in roi_parts:
+            # this is too slow - use just the bounding box for the moment:
+            #img = img_src.get_polygonal_region_px(r.geom, level)
+                       
+            xmin, ymin, xmax, ymax = [int(_z) for _z in r.geom.bounds]
+            img = img_src.get_region_px(xmin, ymin, xmax-xmin, ymax-ymin, level)
+            
+            img_shape = {'width': img.shape[1], 'height': img.shape[0]}
+            sz = min(math.floor(math.sqrt(min(img_shape['width'], img_shape['height'])))**2, 2*4096)
+            sz = int(sz)
+
+            _, polys = model.predict_instances_big(img, axes='YXC', block_size=sz,
+                                                   min_overlap=128, context=128,
+                                                   normalizer=nrm, n_tiles=(4, 4, 1),
+                                                   labels_out=False, show_progress=args.show_progress)
+            (idx,) = np.where(np.array(polys['prob']) >= args.min_prob)  # detections above threshold
+            for k in idx:
+                p = Polygon([xy for xy in zip(polys['coord'][k][0], polys['coord'][k][1])])
+                # don't forget to shift detections by (xmin, ymin) to obtain coords in original space for
+                # this magnification level...
+                p.geom = translate(p.geom, xoff=xmin, yoff=ymin)
+                all_detections.append(p)
+
+        annot.add_annotations(all_detections)
+        
+
+    tmp = annot.asGeoJSON()
+    tmp['__description__'] = __description__
+
+    print(tmp)
 
     with open(out_path, 'w') as f:
-        gjson.dump(annot.asGeoJSON(), f, cls=NumpyJSONEncoder)
+        gjson.dump(tmp, f, cls=NumpyJSONEncoder)
 
     return
 ##
