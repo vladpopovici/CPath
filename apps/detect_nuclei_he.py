@@ -88,9 +88,10 @@ def main():
     in_path = pathlib.Path(args.image).expanduser().absolute()
     out_path = pathlib.Path(args.out).expanduser().absolute()
 
-    __description__['input'] = [in_path]
-    __description__['output'] = [out_path]
+    __description__['input'] = [str(in_path)]
+    __description__['output'] = [str(out_path)]
 
+    print(__description__)
     args.min_prob = max(0, min(args.min_prob, 1.0))
 
     keras = keras_import()
@@ -128,9 +129,11 @@ def main():
         #with open("/home/vlad/tmp/nuclei.json" , 'w') as f:
         #    json.dump(polys, f, cls=NumpyJSONEncoder)
         (idx,) = np.where(np.array(polys['prob']) >= args.min_prob)
+        n = 1
         for k in idx:
             p = Polygon([xy for xy in zip(polys['coord'][k][0], polys['coord'][k][1])])
-            annot.add_annotation_object(p)
+            annot.add_annotation_object(p, name=args.out_annot_name+f'_{n}', in_group=args.out_annot_group)
+            n += 1
     else:
         # run on parts, masked
         roi = WSIAnnotation("tissue", (0,0), mpp=0) # dummy annotation, read it from file:
@@ -141,6 +144,7 @@ def main():
         roi.set_mpp(wsi.get_mpp_for_level(level))  # set the resolution of the annotation to match WSI
         roi_parts = roi.get_group(args.roi_group)
         all_detections = list()
+        n = 1
         for r in roi_parts:
             # this is too slow - use just the bounding box for the moment:
             #img = img_src.get_polygonal_region_px(r.geom, level)
@@ -158,10 +162,15 @@ def main():
                                                    labels_out=False, show_progress=args.show_progress)
             (idx,) = np.where(np.array(polys['prob']) >= args.min_prob)  # detections above threshold
             for k in idx:
-                p = Polygon([xy for xy in zip(polys['coord'][k][0], polys['coord'][k][1])])
+                p = Polygon(
+                    [xy for xy in zip(polys['coord'][k][0], polys['coord'][k][1])],
+                    name=args.out_annot_name + f'_{n}',
+                    in_group=args.out_annot_group
+                    )
                 # don't forget to shift detections by (xmin, ymin) to obtain coords in original space for
                 # this magnification level...
                 p.geom = translate(p.geom, xoff=xmin, yoff=ymin)
+                n += 1
                 all_detections.append(p)
 
         annot.add_annotations(all_detections)
@@ -169,8 +178,6 @@ def main():
 
     tmp = annot.asGeoJSON()
     tmp['__description__'] = __description__
-
-    print(tmp)
 
     with open(out_path, 'w') as f:
         gjson.dump(tmp, f, cls=NumpyJSONEncoder)

@@ -403,7 +403,7 @@ class WSIAnnotation(object):
 
 ##-
 class Point(AnnotationObject):
-    """Pointt: a single position in the image."""
+    """Point: a single position in the image."""
 
     def __init__(self, coords=[0.0, 0.0], name=None, in_group="NO_GROUP"):
         """Initialize a DOT annotation, i.e. a single point in plane.
